@@ -111,9 +111,8 @@ process(Missing, {User, Tree, Repo}, PluginDir, Config) ->
     Url = string:join(["https://raw.github.com", User, Repo,
                       Tree, "src", SourceName], "/"),
     fetch(Url, filename:join(PluginDir, SourceName), Config);
-process(Missing, Other, _PluginDir, Config) ->
-    ?WARN("Invalid config ~p for ~p: ~p~n", [Other, Missing, Config]).
-
+process(Missing, Other, _PluginDir, _Config) ->
+    ?WARN("Invalid config for ~p: [~p]~n", [Missing, Other]).
 
 fetch(Url, Target, Config) ->
     case get({?MODULE, httpc}) of
