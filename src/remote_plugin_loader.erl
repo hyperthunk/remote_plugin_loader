@@ -34,9 +34,9 @@
 %% Plugin API
 %%
 
-'plugins:clean'(_Config, _AppFile) ->
-    Cache = filename:join([rebar_utils:get_cwd(), "build", 
-                           "plugins", "plugins.cache"]),
+'plugins:clean'(Config, _AppFile) ->
+    PluginDir = ?CONFIG(Config, plugin_dir, ?DEFAULT_PLUGIN_DIR),
+    Cache = filename:join([rebar_utils:get_cwd(), PluginDir, "plugins.cache"]),
     case file:read_file(Cache) of
         {ok, Bin} ->
             [ rebar_file_utils:rm_rf(F) || 
