@@ -22,7 +22,7 @@
 %% -----------------------------------------------------------------------------
 -module(remote_plugin_loader).
 
--export(['plugins:clean'/2, 'plugins:install'/2]).
+-export(['clean-plugins'/2, 'install-plugins'/2]).
 
 -define(CONFIG(C, K, D), rebar_config:get_local(C, K, D)).
 -define(DEFAULT_PLUGIN_DIR, filename:join(rebar_utils:get_cwd(), "plugins")).
@@ -34,7 +34,7 @@
 %% Plugin API
 %%
 
-'plugins:clean'(Config, _AppFile) ->
+'clean-plugins'(Config, _AppFile) ->
     PluginDir = ?CONFIG(Config, plugin_dir, ?DEFAULT_PLUGIN_DIR),
     Cache = filename:join([rebar_utils:get_cwd(), PluginDir, "plugins.cache"]),
     case file:read_file(Cache) of
@@ -48,7 +48,7 @@
     end,
     ok.
 
-'plugins:install'(Config, _AppFile) ->
+'install-plugins'(Config, _AppFile) ->
     case get({remote_plugin_loader, status}) of
         complete -> ok;
         _ ->
@@ -78,7 +78,7 @@
 %%
 
 is_pending_clean() ->
-    lists:member('plugins:clean', rebar_config:get_global(issued_commands, [])).
+    lists:member('clean-plugins', rebar_config:get_global(issued_commands, [])).
 
 get_remote(Missing, Remotes) ->
     Found = proplists:get_value(Missing, Remotes),
@@ -148,5 +148,3 @@ fetch(Url, Target, Config) ->
         Error ->
             ?WARN("Error trying to load remote plugin: ~p~n", [Error])
     end.
-
-

@@ -5,9 +5,9 @@ Fetches rebar plugins from github on demand. Very experimental. YMMV.
 ## Demo
 
     $ cd examples
-    $ rebar check-deps plugins:install -v
+    $ rebar check-deps install-plugins -v
     $ rebar compile -v      # notice all plugins are now available
-    $ rebar plugins:clean clean -v
+    $ rebar clean-plugins clean -v
 
 ## Why on earth?
 
