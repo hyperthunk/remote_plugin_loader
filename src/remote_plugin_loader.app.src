@@ -1,12 +1,9 @@
 {application, remote_plugin_loader,
  [
   {description, ""},
-  {vsn, "1"},
-  {registered, []},
+  {vsn, "0.0.2"},
   {applications, [
                   kernel,
                   stdlib
-                 ]},
-  {mod, { remote_plugin_loader_app, []}},
-  {env, []}
+                 ]}
  ]}.
