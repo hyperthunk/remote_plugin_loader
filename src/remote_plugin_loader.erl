@@ -53,29 +53,38 @@
         complete -> ok;
         _ ->
             case is_pending_clean() of
-                true ->
-                    ok;
-                false ->
-                    Plugins = lists:flatten(rebar_config:get_all(Config, plugins)),
-                    PluginDir = ?CONFIG(Config, plugin_dir, ?DEFAULT_PLUGIN_DIR),
-                    case missing_plugins(Plugins, PluginDir) of
-                        [] -> ok;
-                        MissingPlugins ->
-                            ?DEBUG("Checking for missing plugins ~p~n", 
-                                    [MissingPlugins]),
-                            Remotes = ?CONFIG(Config, plugin_remotes, []),
-                            ?DEBUG("Remotes set to ~p~n", [Remotes]),
-                            [ process(Missing, get_remote(Missing, Remotes), 
-                                PluginDir, Config) || Missing <- MissingPlugins ],
-                            put({remote_plugin_loader, status}, complete),
-                            ok
-                    end
+                true -> ok;
+                false -> install_plugins(Config)
             end
     end.
 
 %%
 %% Internal API
 %%
+
+is_basedir() ->
+    rebar_utils:get_cwd() == rebar_config:get_global(base_dir, undefined).
+
+install_plugins(Config) ->
+    Plugins = lists:flatten(rebar_config:get_all(Config, plugins)),
+    PluginDir = ?CONFIG(Config, plugin_dir, ?DEFAULT_PLUGIN_DIR),
+    case missing_plugins(Plugins, PluginDir) of
+        [] -> ok;
+        MissingPlugins ->
+            ?DEBUG("Checking for missing plugins ~p~n", 
+                    [MissingPlugins]),
+            Remotes = ?CONFIG(Config, plugin_remotes, []),
+            ?DEBUG("Remotes set to ~p~n", [Remotes]),
+            [ process(Missing, get_remote(Missing, Remotes), 
+                PluginDir, Config) || Missing <- MissingPlugins ],
+            case is_basedir() of
+                true ->
+                    put({remote_plugin_loader, status}, complete);
+                false ->
+                    ok
+            end,
+            ok
+    end.
 
 is_pending_clean() ->
     lists:member('clean-plugins', rebar_config:get_global(issued_commands, [])).
