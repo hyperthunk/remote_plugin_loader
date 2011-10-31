@@ -25,6 +25,7 @@
 -export(['clean-plugins'/2, 'install-plugins'/2]).
 
 -define(CONFIG(C, K, D), rebar_config:get_local(C, K, D)).
+-define(A_CONFIG(C, K), ulist(lists:umerge(rebar_config:get_all(C, K)))).
 -define(DEFAULT_PLUGIN_DIR, filename:join(rebar_utils:get_cwd(), "plugins")).
 -define(DEBUG(Msg, Args), ?LOG(debug, Msg, Args)).
 -define(WARN(Msg, Args), ?LOG(warn, Msg, Args)).
@@ -66,16 +67,19 @@ is_basedir() ->
     rebar_utils:get_cwd() == rebar_config:get_global(base_dir, undefined).
 
 install_plugins(Config) ->
-    Plugins = lists:flatten(rebar_config:get_all(Config, plugins)),
+    Plugins = ulist(lists:flatten(rebar_config:get_all(Config, plugins))),
+    ?DEBUG("Required plugins: ~p~n", [Plugins]),
     PluginDir = ?CONFIG(Config, plugin_dir, ?DEFAULT_PLUGIN_DIR),
     case missing_plugins(Plugins, PluginDir) of
         [] -> ok;
         MissingPlugins ->
             ?DEBUG("Checking for missing plugins ~p~n", 
                     [MissingPlugins]),
+            Repos = ?A_CONFIG(Config, plugin_repositories),
+            ?DEBUG("Repos set to ~p~n", [Repos]),
             Remotes = ?CONFIG(Config, plugin_remotes, []),
             ?DEBUG("Remotes set to ~p~n", [Remotes]),
-            [ process(Missing, get_remote(Missing, Remotes), 
+            [ process(Missing, get_remote(Missing, Remotes, Repos), 
                 PluginDir, Config) || Missing <- MissingPlugins ],
             case is_basedir() of
                 true ->
@@ -89,10 +93,17 @@ install_plugins(Config) ->
 is_pending_clean() ->
     lists:member('clean-plugins', rebar_config:get_global(issued_commands, [])).
 
-get_remote(Missing, Remotes) ->
-    Found = proplists:get_value(Missing, Remotes),
-    ?DEBUG("Remote for ~p: ~p~n", [Missing, Found]),
-    Found.
+get_remote(Missing, Remotes, Repos) ->
+    case proplists:get_value(Missing, Remotes) of
+        undefined ->
+            SearchTerm = {missing, Repos},
+            ?DEBUG("No remote for ~p: searching ~p instead...~n", 
+                   [Missing, SearchTerm]),
+            SearchTerm;
+        Found ->
+            ?DEBUG("Remote for ~p: ~p~n", [Missing, Found]), 
+            Found
+    end.
 
 missing_plugins(Plugins, PluginDir) ->
     Erls = string:join([atom_to_list(M)++"\\.erl" || M <- Plugins], "|"),
@@ -104,6 +115,19 @@ missing_plugins(Plugins, PluginDir) ->
     ModuleNames = [ list_to_atom(M) || M <- ModFiles ],
     Plugins -- ModuleNames.
 
+ulist(L) ->
+    ulist(L, []).
+
+ulist([], Acc) ->
+    lists:reverse(Acc);
+ulist([H | T], Acc) ->
+    case lists:member(H, Acc) of
+        true ->
+            ulist(T, Acc);
+        false ->
+            ulist(T, [H | Acc])
+    end.
+
 mod_to_erl(Mod) ->
     atom_to_list(Mod) ++ ".erl".
 
@@ -113,15 +137,36 @@ process(Missing, [H|_]=Url, PluginDir, Config) when is_integer(H) ->
         false -> process(Missing, list_to_tuple(string:tokens(Url, "/")), 
                          PluginDir, Config)
     end;
-process(Missing, {User, Tree}, PluginDir, Config) ->
-    process(Missing, {User, Tree, atom_to_list(Missing)}, PluginDir, Config);
-process(Missing, {User, Tree, Repo}, PluginDir, Config) ->
+process(Missing, {missing, []}, _PluginDir, _Config) ->
+    ?WARN("~p not found in any repositories.~n", [Missing]);
+process(Missing, {missing, [{Type, Repo}|Repos]}, PluginDir, Config) ->
+    process(Missing, {missing, [{Type, Repo, "master"}|Repos]}, PluginDir, Config);
+process(Missing, {missing, [{Type, Repo, Tree}|Repos]}, PluginDir, Config) ->
+    ?DEBUG("Searching ~p (~p) for ~p~n", [Type, Repo, Missing]),
+    case process(Missing, {Type, Repo, Tree, atom_to_list(Missing)},
+                 PluginDir, Config) of
+        {ok, _Target} ->
+            ok;
+        _Other ->
+            ?DEBUG("Not found...~n", []),
+            process(Missing, {missing, Repos}, PluginDir, Config)
+    end;
+process(Missing, {bitbucket, User, Tree, Repo}, PluginDir, Config) ->
+    SourceName = mod_to_erl(Missing),
+    Url = string:join(["https://bitbucket.org", User, Repo,
+                      "raw", Tree, "src", SourceName], "/"),
+    fetch(Url, filename:join(PluginDir, SourceName), Config);
+process(Missing, {github, User, Tree, Repo}, PluginDir, Config) ->
     SourceName = mod_to_erl(Missing),
     Url = string:join(["https://raw.github.com", User, Repo,
                       Tree, "src", SourceName], "/"),
     fetch(Url, filename:join(PluginDir, SourceName), Config);
+process(Missing, {User, Tree}, PluginDir, Config) ->
+    process(Missing, {User, Tree, atom_to_list(Missing)}, PluginDir, Config);
+process(Missing, {User, Tree, Repo}, PluginDir, Config) ->
+    process(Missing, {github, User, Tree, Repo}, PluginDir, Config);
 process(Missing, Other, _PluginDir, _Config) ->
-    ?WARN("Invalid config for ~p: [~p]~n", [Missing, Other]).
+    ?WARN("Invalid config for ~p: ~p~n", [Missing, Other]).
 
 fetch(Url, Target, Config) ->
     case get({?MODULE, httpc}) of
@@ -153,7 +198,10 @@ fetch(Url, Target, Config) ->
         {ok, saved_to_file} ->
             CacheFile = filename:join(filename:dirname(Target), "plugins.cache"),
             ok = file:write_file(CacheFile, Target ++ "\n", [append]),
-            ?DEBUG("Successfully loaded remote plugin!~n", []);
+            ?DEBUG("Successfully loaded remote plugin!~n", []),
+            {ok, Target};
+        {ok, {{_, 404, _}, _, _}} ->
+            {error, not_found};
         Error ->
             ?WARN("Error trying to load remote plugin: ~p~n", [Error])
     end.
