@@ -1,4 +1,4 @@
-# Remote Plugin Loader
+# Remote Plugin Loader [![travis](https://secure.travis-ci.org/hyperthunk/remote_plugin_loader.png)](http://travis-ci.org/hyperthunk/remote_plugin_loader)
 
 Fetches rebar plugins from github on demand. Very experimental. YMMV.
 
