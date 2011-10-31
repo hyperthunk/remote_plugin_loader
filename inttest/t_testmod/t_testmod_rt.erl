@@ -4,7 +4,8 @@
 -include_lib("eunit/include/eunit.hrl").
 
 files() ->
-    [{copy, "rebar.config", "rebar.config"},
+    [{copy, "../../rebar", "rebar"},
+     {copy, "rebar.config", "rebar.config"},
      {copy, "../../src/remote_plugin_loader.erl", 
             "build/plugins/remote_plugin_loader.erl"},
      {copy, "global.config", ".home_folder/.rebar/config"},
@@ -12,8 +13,8 @@ files() ->
 
 run(Dir) ->
     retest_log:log(debug, "Running in Dir: ~s~n", [Dir]),
-    ?assertMatch({ok, _}, retest:sh("rebar check-deps -v", [])),
-    ?assertMatch({ok, _}, retest:sh("rebar install-plugins -v", 
+    ?assertMatch({ok, _}, retest:sh("./rebar check-deps -v", [])),
+    ?assertMatch({ok, _}, retest:sh("./rebar install-plugins -v", 
                                     [{env, [{"HOME", ".home_folder"}]}])),
     ?assertMatch(true, filelib:is_regular("build/plugins/rebar_skip_deps.erl")),
     ok.
