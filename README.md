@@ -2,6 +2,13 @@
 
 Fetches rebar plugins from github on demand. Very experimental. YMMV.
 
+## Status
+
+This plugin is in stasis at the moment, as I'm working on a wholesale, stand-alone
+dependency manager for rebar (and other build chains like make, sinan, etc). I 
+will deprecate the plugin once the successor project is in alpha and remove this
+repository around beta 1.
+
 ## Demo
 
     $ cd examples
